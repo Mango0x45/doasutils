@@ -1,0 +1,68 @@
+#!/bin/sh
+
+# Copyright (c) 2022 Thomas Voss <mail@thomasvoss.com>
+#
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+# WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+# AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+# DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+# OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+# TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+# PERFORMANCE OF THIS SOFTWARE.
+
+# Copy an existing text file to a temporary location.  Then edit the file.
+# Attempt to then transfer the temporary file back to the original location if
+# the temprary file has been altered.  Conclude with a little clean-up.  Try to
+# avoid deleting any changes.
+
+warn() { echo "$PROG: $1" >&2; }
+die()  { warn "$2"; exit $1;   }
+
+get_intr() {
+	stty -a | sed -En '
+		/^(.* )?intr = / {
+			s///
+			s/;.*$//
+			p
+		}'
+}
+
+PROG=${0##*/}
+
+[ $# -ne 1 ] && {
+	echo "Usage: $PROG file"
+	exit 1
+}
+
+[ ! -f "$1" ] && die 2 "$1: File does not exist or is a special file/link."
+[   -L "$1" ] && die 2 "$1: File is a symbolic link, refusing to edit."
+[ ! -r "$1" ] && die 3 "$1: File cannot be read by the current user."
+
+tmp=$(mktemp --tmpdir doasedit.XXXXXXXX --suffix="${1//*./.}") || \
+	die 4 "Could not create temporary file."
+trap "rm -f $tmp" EXIT HUP INT TERM
+cp "$1" "$tmp" || die 5 "$1: Unable to copy file."
+
+"${VISUAL:-${EDITOR:-vi}}" "$tmp" || {
+	warn "Could not run visual editor '$VISUAL' or editor '$EDITOR'."
+	die 6 "Make sure the VISUAL and/or EDITOR variables are set."
+}
+
+cmp -s "$1" "$tmp" && \
+	die 0 "File unchanged.  Not writing back to original location."
+
+# At this point the file has been changed.  Make sure it still exists.
+[ -f "$tmp" ] && {
+	doas cp "$tmp" "$1"
+	until cmp -s "$tmp" "$1"; do
+		warn "$1: Copying failed.  Press enter to try again,"
+		warn "or ($(get_intr)) to cancel."
+		read _
+		doas cp "$tmp" "$1"
+	done
+}
