@@ -33,6 +33,15 @@ utility opens an editor on a temporary copy of the
 .Xr doas 1
 configuration file and checks it for syntax errors before installing it as the
 actual configuration file.
+If edited the doas configuration file requires root permissions, it is opened
+using
+.Xr doasedit 8 ,
+otherwise the editor is either
+.Ev VISUAL ,
+.Ev EDITOR ,
+or
+.Xr vi 1
+in that order.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds

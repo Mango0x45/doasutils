@@ -31,6 +31,8 @@ umask 022
 DOAS_CONF=@DOAS_CONF@
 doas_conf_mode="0600"
 
+[ $(id -u) -eq 0 ] && EDIT="${VISUAL:-${EDITOR:-vi}}" || EDIT=doasedit
+
 warn() { echo "$PROG: $@" >&2; }
 die()  { rv=$1; shift; warn "$@"; exit $rv; }
 
@@ -145,13 +147,13 @@ fi
 # editing errors made.  This is why we ignore the exit code from the
 # editor.
 
-doasedit "$tmp_doas" || true
+"$EDIT" "$tmp_doas" || true
 
 until doas -C "$tmp_doas"; do
 	warn "Press enter to edit doas.conf again to fix it,"
 	warn "or ($(get_intr)) to cancel."
 	read _
-	doasedit "$tmp_doas" || true
+	"$EDIT" "$tmp_doas" || true
 done
 
 # Use mv(1) to rename the temporary file to doas.conf as it is atomic.
