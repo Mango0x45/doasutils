@@ -33,8 +33,9 @@ doas_conf_mode="0600"
 
 [ $(id -u) -eq 0 ] && EDIT="${VISUAL:-${EDITOR:-vi}}" || EDIT=doasedit
 
-warn() { echo "$PROG: $@" >&2; }
-die()  { rv=$1; shift; warn "$@"; exit $rv; }
+warn()  { echo "$PROG: $@" >&2; }
+die()   { rv=$1; shift; warn "$@"; exit $rv; }
+usage() { die 1 "Usage: $PROG [-n] [file]"; }
 
 get_intr() {
 	stty -a | sed -En '
@@ -56,26 +57,21 @@ set_trap_rm() {
 
 noop=0
 
-while getopts hn c; do
+while getopts n c; do
 	case "$c" in
-	n)
-		noop=$(($noop + 1))
-		;;
-	*)
-		echo "Usage: $PROG [-n] [file]" >&2;
-		exit 1
-		;;
+	n) noop=$(($noop + 1)) ;;
+	*) usage               ;;
 	esac
 done
 shift $(($OPTIND - 1))
 
 case $# in
-0)                    ;;
-1) DOAS_CONF="$1"     ;;
-*) usage 1>&2; exit 1 ;;
+0)                ;;
+1) DOAS_CONF="$1" ;;
+*) usage          ;;
 esac
 
-case ${noop} in
+case $noop in
 0) noop=false                      ;;
 1) noop=true                       ;;
 *) noop=true; exec >/dev/null 2>&1 ;;
