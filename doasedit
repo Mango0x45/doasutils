@@ -43,7 +43,7 @@ PROG=${0##*/}
 [   -L "$1" ] && die 2 "$1: File is a symbolic link, refusing to edit."
 [ ! -r "$1" ] && die 3 "$1: File cannot be read by the current user."
 
-tmp=$(mktemp --tmpdir doasedit.XXXXXXXX --suffix="${1//*./.}") || \
+tmp=$(mktemp --tmpdir doasedit.XXXXXXXX --suffix="${1//\//-}") || \
 	die 4 "Could not create temporary file."
 trap "rm -f $tmp" EXIT HUP INT TERM
 cp "$1" "$tmp" || die 5 "$1: Unable to copy file."
