@@ -87,7 +87,7 @@ esac
 doas_conf_dir="$(dirname "$DOAS_CONF")"
 doas_conf_base="$(basename "$DOAS_CONF")"
 DOAS_CONF="$doas_conf_dir/$doas_conf_base"
-doas_lock_file="$DOAS_CONF.lck"
+doas_lock_file="$DOAS_CONF.lock"
 
 # These checks are only for producing nicer diagnostic messages to the
 # user.  They are not relied on by the rest of the code.
