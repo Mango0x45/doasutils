@@ -16,7 +16,7 @@
 .\" TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 .\" PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd November 14, 2022
+.Dd Match 25, 2026
 .Dt DOASEDIT 8
 .Os
 .Sh NAME
@@ -46,18 +46,51 @@ is tried instead.
 If both environment variables are not set then
 .Xr vi(1)
 is used as a fallback.
+.Pp
+By default
+.Nm
+will create a temporary file in
+.Ev TMPDIR .
+If
+.Ev TMPDIR
+is not set it will fallback to using
+.Pa /tmp .
+.Pp
+When editing a file the
+.Ev DOASEDIT_EDITING
+environment variable will be set to the absolute path of
+.Ar file .
+Editors can use this to ensure that filetype-specific configurations are
+properly applied.
 .Sh EXIT STATUS
 .Ex -std
 .Sh ENVIRONMENT
 .Bl -tag -width Ds
-.It Ev VISUAL
-The editor to use to edit the target text file.
-If the VISUAL variable is not set, then EDTIOR is used as a fallback.
+.It Ev DOASEDIT_EDITING
+The absolute path to the root-protected file currently being edited.
 .It Ev EDITOR
-The editor to use to edit the target text file if VISUAL is not set.
-If the EDITOR variable is not set, then the command
+The editor to use to edit the target text file if
+.Ev VISUAL
+is not set.
+If the
+.Ev EDITOR
+variable is not set, then the command
 .Xr vi 1
 is used.
+.It Ev TMPDIR
+The directory in which to create the temporary file copy to edit.
+If the
+.Ev TMPDIR
+variable is not set,
+.Pa /tmp
+will be used as a fallback.
+.It Ev VISUAL
+The editor to use to edit the target text file.
+If the
+.Ev VISUAL
+variable is not set, then
+.Ev EDTIOR
+is used as a fallback.
 .El
 .Sh SEE ALSO
 .Xr doas 1 ,
