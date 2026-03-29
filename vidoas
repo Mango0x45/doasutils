@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Copyright (c) 2020 Kimmo Suominen <kim@netbsd.org>
-# Copyright (c) 2022 Thomas Voss <mail@thomasvoss.com>
+# Copyright (c) 2022–2026 Thomas Voss <mail@thomasvoss.com>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
