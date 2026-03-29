@@ -49,7 +49,7 @@
 
 ;;;###autoload
 (define-minor-mode global-doasedit-mode
-  "Global minor-mode to automatically set correct major-mode in the
+  "Global minor-mode to automatically set the correct major-mode in the
 current buffer when editing a root-protected file via the doasedit
 command-line utility."
   :global t
