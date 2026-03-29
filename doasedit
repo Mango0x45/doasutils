@@ -20,10 +20,19 @@
 # the temprary file has been altered.  Conclude with a little clean-up.  Try to
 # avoid deleting any changes.
 
-warn() { echo "$PROG: $1" >&2; }
-die()  { warn "$2"; exit $1;   }
+warn()
+{
+	echo "$PROG: $1" >&2;
+}
 
-get_intr() {
+err()
+{
+	warn "$1"
+	exit 1
+}
+
+get_intr()
+{
 	stty -a | sed -En '
 		/^(.* )?intr = / {
 			s///
@@ -32,42 +41,45 @@ get_intr() {
 		}'
 }
 
-get_abspath() (
+get_abspath()
+(
 	cd "$(dirname "$1")"
 	echo "$(pwd)/$(basename "$1")"
 )
 
-PROG=${0##*/}
+PROG="${0##*/}"
 
-[ $# -ne 1 ] && {
+if [ $# -ne 1 ]
+then
 	echo "Usage: $PROG file"
 	exit 1
-}
+fi
 
-[ ! -f "$1" ] && die 2 "$1: File does not exist or is a special file/link."
-[   -L "$1" ] && die 2 "$1: File is a symbolic link, refusing to edit."
-[ ! -r "$1" ] && die 3 "$1: File cannot be read by the current user."
+[ ! -f "$1" ] && err "$1: file does not exist or is a special file/link"
+[   -L "$1" ] && err "$1: file is a symbolic link; refusing to edit"
+[ ! -r "$1" ] && err "$1: file cannot be read by the current user"
 
-tmp="$(mktemp -p doasedit.XXXXXXXX)" || die 4 "Could not create temporary file."
-trap "rm -f $tmp" EXIT HUP INT TERM
-cp "$1" "$tmp" || die 5 "$1: Unable to copy file."
+tmp="$(mktemp -t doasedit.XXXXXXXX)" || err 4 "could not create temporary file"
+trap "rm -f \"$tmp\"" EXIT HUP INT TERM
+cp "$1" $tmp || err "$1: unable to copy file"
 
 abspath="$(get_abspath "$1")"
-DOASEDIT_EDITING="$abspath" "${VISUAL:-${EDITOR:-vi}}" "$tmp" || {
-	warn "Could not run visual editor '$VISUAL' or editor '$EDITOR'."
-	die 6 "Make sure the VISUAL and/or EDITOR variables are set."
-}
+DOASEDIT_EDITING="$abspath" "${VISUAL:-${EDITOR:-vi}}" "$tmp" || exit $?
 
-cmp -s "$1" "$tmp" &&
-	die 0 "File unchanged.  Not writing back to original location."
+if cmp -s "$1" "$tmp"
+then
+	warn "file unchanged; not writing back to the original location"
+	exit 0
+fi
 
 # At this point the file has been changed.  Make sure it still exists.
-[ -f "$tmp" ] && {
+if [ -f "$tmp" ]
+then
 	doas cp "$tmp" "$1"
-	until cmp -s "$tmp" "$1"; do
-		warn "$1: Copying failed.  Press enter to try again,"
-		warn "or ($(get_intr)) to cancel."
+	until cmp -s "$tmp" "$1"
+	do
+		warn "$1: copying failed; press enter to try again, or $(get_intr) to cancel"
 		read _
 		doas cp "$tmp" "$1"
 	done
-}
+fi

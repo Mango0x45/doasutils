@@ -24,20 +24,38 @@ set -eu
 PATH=/bin:/usr/bin:/usr/local/bin
 export PATH
 
-PROG="${0##*/}"
+readonly PROG="${0##*/}"
 
 umask 022
 
 DOAS_CONF=@DOAS_CONF@
 doas_conf_mode="0600"
 
-[ $(id -u) -eq 0 ] && EDIT="${VISUAL:-${EDITOR:-vi}}" || EDIT=doasedit
+if [ $(id -u) -eq 0 ]
+then
+	EDIT="${VISUAL:-${EDITOR:-vi}}"
+else
+	EDIT=doasedit
+fi
 
-warn()  { echo "$PROG: $@" >&2; }
-die()   { rv=$1; shift; warn "$@"; exit $rv; }
-usage() { die 1 "Usage: $PROG [-n] [file]"; }
+warn()
+{
+	echo "$PROG: $@" >&2
+}
 
-get_intr() {
+err()
+{
+	warn "$@"
+	exit 1
+}
+
+usage()
+{
+	err "Usage: $PROG [-n] [file]";
+}
+
+get_intr()
+{
 	stty -a | sed -En '
 		/^(.* )?intr = / {
 			s///
@@ -46,10 +64,12 @@ get_intr() {
 		}'
 }
 
-set_trap_rm() {
+set_trap_rm()
+{
 	local file files
 	files=
-	for file in "$@"; do
+	for file in "$@"
+	do
 		files="$files '$file'"
 	done
 	[ -n "$files" ] && trap "rm -f $files" EXIT HUP INT TERM
@@ -79,8 +99,7 @@ esac
 
 case "$DOAS_CONF" in
 -*)
-	warn "Invalid filename: $DOAS_CONF"
-	die 1 "Try using './$DOAS_CONF' instead"
+	err "invalid filename: $DOAS_CONF"
 	;;
 esac
 
@@ -89,19 +108,14 @@ doas_conf_base="$(basename "$DOAS_CONF")"
 DOAS_CONF="$doas_conf_dir/$doas_conf_base"
 doas_lock_file="$DOAS_CONF.lock"
 
-# These checks are only for producing nicer diagnostic messages to the
-# user.  They are not relied on by the rest of the code.
-
-[ ! -e "$doas_conf_dir" ] && die 1 "$doas_conf_dir does not exist"
-[ ! -d "$doas_conf_dir" ] && die 1 "$doas_conf_dir is not a directory"
+[ ! -e "$doas_conf_dir" ] && err "$doas_conf_dir does not exist"
+[ ! -d "$doas_conf_dir" ] && err "$doas_conf_dir is not a directory"
 [ ! -w "$doas_conf_dir" ] && {
 	owner="$(stat -c %U "$doas_conf_dir")"
-	warn "$doas_conf_dir is not writable"
-	die 1 "You probably need to run $PROG as $owner"
+	err "$doas_conf_dir is not writable"
 }
 
-tmp_doas="$(mktemp --tmpdir vidoas.XXXXXXXXXX)" \
-	|| die 1 "You probably need to run $PROG as root"
+tmp_doas="$(mktemp -t vidoas.XXXXXXXX)" || exit 1
 set_trap_rm "$tmp_doas"
 
 # It is important that the ln(1) command fails if the target already
@@ -109,34 +123,39 @@ set_trap_rm "$tmp_doas"
 # (removing any existing target).  Adjust PATH to avoid such ln(1)
 # implementations.
 
-tmp_test_ln="$(mktemp --tmpdir vidoas.XXXXXXXXXX)"
+tmp_test_ln="$(mktemp -t vidoas.XXXXXXXX)"
 set_trap_rm "$tmp_doas" "$tmp_test_ln"
 
-ln "$tmp_doas" "$tmp_test_ln" 2>/dev/null \
-	&& die 1 'ln(1) is not safe for creating lock files, bailing'
+ln "$tmp_doas" "$tmp_test_ln" 2>/dev/null &&
+	err 'ln(1) is not safe for creating lock files, bailing'
 
 # If a doas.conf file exists, copy it into the temporary file for
 # editing.  If none exist, the editor will open with an empty file.
 
-[ -f "$DOAS_CONF" ] && {
-	if [ -r "$DOAS_CONF" ]; then
+if [ -f "$DOAS_CONF" ]
+then
+	if [ -r "$DOAS_CONF" ]
+	then
 		cp "$DOAS_CONF" "$tmp_doas"
 	else
-		die 1 "$DOAS_CONF is not readable"
+		err "$DOAS_CONF is not readable"
 	fi
-}
+fi
 
-$noop && {
-	doas -C "$DOAS_CONF" || die 1 "$DOAS_CONF contains syntax errors."
-	die 0 'OK: Prerequisite checks passed'
-}
+if $noop
+then
+	doas -C "$DOAS_CONF" || err "$DOAS_CONF contains syntax errors"
+	warn 'ok; prerequisite checks passed'
+	exit 0
+fi
 
 # Link the temporary file to the lock file.
 
-if ln "$tmp_doas" "$doas_lock_file"; then
+if ln "$tmp_doas" "$doas_lock_file"
+then
 	set_trap_rm "$tmp_doas" "$tmp_test_ln" "$doas_lock_file"
 else
-	die 1 "$DOAS_CONF is already locked"
+	err "$DOAS_CONF is already locked"
 fi
 
 # Some versions of vi(1) exit with a code that reflects the number of
@@ -145,27 +164,24 @@ fi
 
 "$EDIT" "$tmp_doas" || true
 
-until doas -C "$tmp_doas"; do
-	warn "Press enter to edit doas.conf again to fix it,"
-	warn "or ($(get_intr)) to cancel."
+until doas -C "$tmp_doas"
+do
+	warn "press enter to edit doas.conf again and fix it,"
+	warn "or $(get_intr) to cancel."
 	read _
 	"$EDIT" "$tmp_doas" || true
 done
 
-# Use mv(1) to rename the temporary file to doas.conf as it is atomic.
-# Update: No longer use mv as it messes up permissions on the doas.conf file.
-# Use install with ownership set to root.
-
-if [ -s "$tmp_doas" ]; then
-	if cmp -s "$tmp_doas" "$DOAS_CONF"; then
-		warn "No changes made"
+if [ -s "$tmp_doas" ]
+then
+	if cmp -s "$tmp_doas" "$DOAS_CONF"
+	then
 		warn "$DOAS_CONF unchanged"
 	else
-		install -o root -m "$doas_conf_mode" "$tmp_doas" \
-			"$DOAS_CONF" \
-			&& warn "$DOAS_CONF updated"
+		install -o root -m "$doas_conf_mode" "$tmp_doas" "$DOAS_CONF" &&
+			warn "$DOAS_CONF updated"
 	fi
 else
-	warn "Not installing an empty doas.conf file"
+	warn "not installing an empty doas.conf file"
 	warn "$DOAS_CONF unchanged"
 fi
