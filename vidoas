@@ -33,7 +33,7 @@ doas_conf_mode="0600"
 
 if [ $(id -u) -eq 0 ]
 then
-	EDIT="${VISUAL:-${EDITOR:-vi}}"
+	EDIT=${VISUAL:-${EDITOR:-vi}}
 else
 	EDIT=doasedit
 fi

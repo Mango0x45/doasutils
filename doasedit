@@ -64,7 +64,7 @@ trap "rm -f \"$tmp\"" EXIT HUP INT TERM
 cp "$1" $tmp || err "$1: unable to copy file"
 
 abspath="$(get_abspath "$1")"
-DOASEDIT_EDITING="$abspath" "${VISUAL:-${EDITOR:-vi}}" "$tmp" || exit $?
+DOASEDIT_EDITING="$abspath" ${VISUAL:-${EDITOR:-vi}} "$tmp" || exit $?
 
 if cmp -s "$1" "$tmp"
 then
